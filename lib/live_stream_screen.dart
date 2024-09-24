@@ -11,17 +11,49 @@ class LiveStreamScreen extends StatefulWidget {
 class _LiveStreamScreenState extends State<LiveStreamScreen> {
   VlcPlayerController? _videoPlayerController;
   bool _isPlaying = false;
-  String? _errorMessage; // Variable to hold error message
+  String? _errorMessage;
 
+  // Controllers for input fields with default values
+  final TextEditingController _ipController =
+  TextEditingController(text: '172.16.0.123');
+  final TextEditingController _portController =
+  TextEditingController(text: '554');
+  final TextEditingController _usernameController =
+  TextEditingController(text: 'admin');
+  final TextEditingController _passwordController =
+  TextEditingController(text: 'Admin@123');
+
+  @override
+  void dispose() {
+    _videoPlayerController?.dispose();
+    _ipController.dispose();
+    _portController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  // Function to start the stream using user input
   void _startStream() {
     try {
-      // Hardcoded RTSP URL
-      final username = 'admin';
-      final password = 'Admin@123';
-      final ipAddress = '172.16.0.123';
-      final rtspUrl = 'rtsp://$username:${Uri.encodeComponent(password)}@$ipAddress:554/ch01/0';
+      // Get the values from the input fields
+      final ipAddress = _ipController.text;
+      final port = _portController.text;
+      final username = _usernameController.text;
+      final password = _passwordController.text;
 
-      // Dispose previous controller if it exists
+      // Validate if inputs are provided
+      if (ipAddress.isEmpty || port.isEmpty || username.isEmpty || password.isEmpty) {
+        setState(() {
+          _errorMessage = 'All fields are required';
+        });
+        return;
+      }
+
+      final rtspUrl =
+          'rtsp://$username:${Uri.encodeComponent(password)}@$ipAddress:$port/ch01/0';
+
+      // Dispose the previous controller if it exists
       _videoPlayerController?.dispose();
 
       // Create a new controller for the RTSP stream
@@ -32,7 +64,7 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
         options: VlcPlayerOptions(),
       );
 
-      // Error Handling
+      // Error handling for the controller
       _videoPlayerController!.addListener(() {
         if (!_videoPlayerController!.value.isInitialized) {
           setState(() {
@@ -42,7 +74,8 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
 
         if (_videoPlayerController!.value.hasError) {
           setState(() {
-            _errorMessage = 'Error: ${_videoPlayerController!.value.errorDescription}';
+            _errorMessage =
+            'Error: ${_videoPlayerController!.value.errorDescription}';
           });
         }
       });
@@ -59,45 +92,81 @@ class _LiveStreamScreenState extends State<LiveStreamScreen> {
   }
 
   @override
-  void dispose() {
-    _videoPlayerController?.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Live RTSP Stream'),
       ),
-      body: Column(
-        children: [
-          ElevatedButton(
-            onPressed: _startStream,
-            child: const Text('Start Stream'),
-          ),
-          if (_errorMessage != null) // Display error message if exists
-            Padding(
-              padding: const EdgeInsets.all(8.0),
-              child: Text(
-                _errorMessage!,
-                style: TextStyle(color: Colors.red),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Input fields for IP, Port, Username, Password with default values
+            TextFormField(
+              controller: _ipController,
+              decoration: const InputDecoration(
+                labelText: 'IP Address',
+                border: OutlineInputBorder(),
               ),
             ),
-          Expanded(
-            child: _isPlaying && _videoPlayerController != null
-                ? VlcPlayer(
-              controller: _videoPlayerController!,
-              aspectRatio: 16 / 9,
-              placeholder: const Center(
-                child: CircularProgressIndicator(),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _portController,
+              decoration: const InputDecoration(
+                labelText: 'Port',
+                border: OutlineInputBorder(),
               ),
-            )
-                : const Center(
-              child: Text('Click the button to start streaming'),
+              keyboardType: TextInputType.number,
             ),
-          ),
-        ],
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _usernameController,
+              decoration: const InputDecoration(
+                labelText: 'Username',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _passwordController,
+              decoration: const InputDecoration(
+                labelText: 'Password',
+                border: OutlineInputBorder(),
+              ),
+              obscureText: true, // Hide password
+            ),
+            const SizedBox(height: 20),
+
+            ElevatedButton(
+              onPressed: _startStream,
+              child: const Text('Start Stream'),
+            ),
+
+            // Display error message if exists
+            if (_errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  _errorMessage!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
+
+            // Video Player
+            Expanded(
+              child: _isPlaying && _videoPlayerController != null
+                  ? VlcPlayer(
+                controller: _videoPlayerController!,
+                aspectRatio: 16 / 9,
+                placeholder: const Center(child: CircularProgressIndicator()),
+              )
+                  : const Center(
+                child: Text('Enter camera details and start streaming'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
